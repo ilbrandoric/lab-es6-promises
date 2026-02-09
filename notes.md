@@ -1,86 +1,221 @@
-## Iteration 1
+# Async JavaScript Quick Reference
 
-Big Picture — What is this code trying to do?
+## 1. Callbacks
 
-The code is retrieving step-by-step instructions for making mashed potatoes and adding each step to a webpage in the correct order.
-Why does it need this structure?
-Because getInstruction() is asynchronous — meaning it doesn’t return the result immediately. It likely simulates a network request (like fetching from an API).
-So the program must wait for step 0 before asking for step 1, then wait again before step 2, etc.
-👉 Think of it like cooking with someone reading instructions over the phone — you can’t hear the next step until they finish the previous one.
+**Idea:** Run a function *after* an async task finishes.
 
-🔹 Walkthrough (mentally execute it)
+**Problem:** Creates deep nesting ("callback hell"). Hard to read and
+maintain.
 
-1️⃣ First call
-getInstruction("mashedPotatoes", 0, (step0) => {
+------------------------------------------------------------------------
 
-👉 “Give me step 0, and when you have it, run this function.”
-When the step arrives:
-document.querySelector("#mashedPotatoes").innerHTML += `<li>${step0}</li>`;
+## 2. Promises
 
-✔️ It finds the HTML element with id mashedPotatoes
-✔️ Adds a <li> containing the instruction
+**Idea:** A Promise is a value that will exist later.
 
-2️⃣ Immediately inside that callback…
+**Pattern:**
 
-It requests step 1:
-getInstruction("mashedPotatoes", 1, (step1) => {
+``` javascript
+getInstruction("steak", 0)
+  .then(step => console.log(step))
+  .catch(error => console.error(error));
+```
 
-Same pattern repeats.
-Each step is nested inside the previous callback so execution stays in order.
+**Key Rule:**\
+Always `return` a promise inside `.then()` to keep the chain working.
 
-🔹 Why not just do this?
-You might wonder:
-getInstruction(0)
-getInstruction(1)
-getInstruction(2)
+**Benefit:** Flatter structure + centralized error handling.
 
-Because async calls can finish in random order.
-Without nesting you could get:
-Step 3
-Step 1
-Step 0
-Step 2
+------------------------------------------------------------------------
 
-Not great for cooking
+## 3. async / await
 
-🔹 The Final Step
-After step 4:
-document.querySelector("#mashedPotatoesImg").style.display = "block";
 
-This reveals the image — probably hidden with display: none.
+-   `async` → allows waiting inside the function.
+-   `await` → pause THIS function until the promise resolves.
+-   Does NOT freeze the browser.
 
-🔹 The Real Lesson Here (important)
-This code works…
-…but it has a major structural problem.
-Look at the shape:
-callback
- └ callback
-    └ callback
-       └ callback
+**Example:**
 
-This is called:
-👉 Callback Hell
-👉 Pyramid of Doom
+``` javascript
+async function makeSteak() {
+  const step = await getInstruction("steak", 0);
+  console.log(step);
+}
+```
 
-Why developers avoid it:
-✅ Hard to read
-✅ Hard to debug
-✅ Hard to maintain
-✅ Error handling becomes messy
-✅ Doesn’t scale
-Imagine 15 steps instead of 5 😬
+**Rules:** ✅ `await` only works inside `async` functions.\
+✅ Reads top → bottom (less cognitive load).
 
-🔹 How modern JavaScript fixes this
-Today we prefer:
-✅ Promises
-or even better…
-✅ async / await
+------------------------------------------------------------------------
 
-Which turns that pyramid into clean, top-to-bottom logic.
-Example (just conceptually):
-const step0 = await getInstruction(...)
-const step1 = await getInstruction(...)
+## async + await loop reference
 
-Reads like synchronous code. Much easier for your brain.
+``` javascript
+async function makeBroccoli() {
+  try {
+    const list = document.querySelector("#broccoli");
 
-## Iteration 2
+    for (let i = 0; i < 7; i++) {
+      const step = await getInstruction("broccoli", i);
+      list.innerHTML += `<li>${step}</li>`;
+    }
+
+    document.querySelector("#broccoliImg").style.display = "block";
+
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+makeBroccoli();
+```
+
+------------------------------------------------------------------------
+
+## 4. Promise.all()
+
+**Idea:** Run async tasks in parallel instead of waiting one-by-one.
+
+**Use when tasks are independent.**
+
+### Pattern:
+
+1.  Create promises\
+2.  Await them together\
+3.  Use results
+
+``` javascript
+async function makeBroccoli() {
+  const list = document.querySelector("#broccoli");
+
+  const promises = [];
+  for (let i = 0; i < 7; i++) {
+    promises.push(getInstruction("broccoli", i));
+  }
+
+  const steps = await Promise.all(promises);
+
+  steps.forEach(step => {
+    list.innerHTML += `<li>${step}</li>`;
+  });
+
+  document.querySelector("#broccoliImg").style.display = "block";
+}
+```
+
+### What it means:
+
+> "Start everything → wait once → continue."
+
+**Important:**\
+If ONE promise fails → `Promise.all()` fails.
+
+------------------------------------------------------------------------
+
+## When to Use What
+
+✅ **Callbacks:** Mostly legacy code.\
+✅ **Promises:** Good to understand, common in APIs.\
+✅ **async/await:** Default choice for readability.\
+✅ **Promise.all():** Use for speed when tasks don't depend on each
+other.
+
+------------------------------------------------------------------------
+
+## One-Line Mental Models
+
+-   **Promise:** "I'll give you the value later."\
+-   **async:** "This function can wait."\
+-   **await:** "Pause here until ready."\
+-   **Promise.all:** "Start all requests in parallel → wait → render when ALL are done.”
+
+-------------------------------------------------------
+## Visual Comparison: Sequential vs. Parallel
+
+### Method 1: Promise Chain (Sequential - One at a Time)
+
+```mermaid
+gantt
+    title Promise Chain: Sequential Execution
+    dateFormat YYYY-MM-DD HH:mm:ss
+    
+    section Requests
+    Step 0  :s0, 2026-02-09 00:00:00, 1s
+    Step 1  :s1, after s0, 1s
+    Step 2  :s2, after s1, 1s
+    Step 3  :s3, after s2, 1s
+    Step 4  :s4, after s3, 1s
+    
+    section Display
+    Display 0  :d0, 2026-02-09 00:00:00, 1s
+    Display 1  :d1, after d0, 1s
+    Display 2  :d2, after d1, 1s
+    Display 3  :d3, after d2, 1s
+    Display 4  :d4, after d3, 1s
+```
+
+**Total Time: ~5 seconds** (requests happen ONE AFTER ANOTHER)
+
+### Method 2: Async/Await Loop (Sequential - One at a Time)
+
+```mermaid
+gantt
+    title Async/Await Loop: Sequential Execution
+    dateFormat YYYY-MM-DD HH:mm:ss
+    
+    section Requests
+    Step 0  :s0, 2026-02-09 00:00:00, 1s
+    Step 1  :s1, after s0, 1s
+    Step 2  :s2, after s1, 1s
+    Step 3  :s3, after s2, 1s
+    Step 4  :s4, after s3, 1s
+    Step 5  :s5, after s4, 1s
+    Step 6  :s6, after s5, 1s
+    
+    section Display
+    Display 0  :d0, 2026-02-09 00:00:00, 1s
+    Display 1  :d1, after d0, 1s
+    Display 2  :d2, after d1, 1s
+    Display 3  :d3, after d2, 1s
+    Display 4  :d4, after d3, 1s
+    Display 5  :d5, after d4, 1s
+    Display 6  :d6, after d5, 1s
+```
+
+**Total Time: ~7 seconds** (each request waits for the previous one to complete)
+
+### Method 3: Promise.all (PARALLEL - All at Once!)
+
+```mermaid
+gantt
+    title Promise.all: Parallel Execution
+    dateFormat YYYY-MM-DD HH:mm:ss
+    
+    section Requests
+    Step 0  :s0, 2026-02-09 00:00:00, 1s
+    Step 1  :s1, 2026-02-09 00:00:00, 1s
+    Step 2  :s2, 2026-02-09 00:00:00, 1s
+    Step 3  :s3, 2026-02-09 00:00:00, 1s
+    Step 4  :s4, 2026-02-09 00:00:00, 1s
+    Step 5  :s5, 2026-02-09 00:00:00, 1s
+    Step 6  :s6, 2026-02-09 00:00:00, 1s
+    Step 7  :s7, 2026-02-09 00:00:00, 1s
+    
+    section Display
+    Display All  :d0, after s0, 1s
+```
+
+**Total Time: ~1 second** (all requests happen SIMULTANEOUSLY)
+
+### Quick Comparison Table
+
+| Method | Execution | Time for 7 tasks | When to use |
+|--------|-----------|------------------|------------|
+| **Promise chain** | Sequential | ~1 task/sec = 7 sec | When next step depends on previous data |
+| **async/await loop** | Sequential | ~1 task/sec = 7 sec | When you need to process results in order |
+| **Promise.all** | Parallel | All at once = 1 sec | When tasks are independent |
+
+**Key Insight:** Promise.all is ~7x faster for independent requests!
+
+-------------------------------------------------------
